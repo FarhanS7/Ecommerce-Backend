@@ -1,46 +1,46 @@
-import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
-import mongoSanitize from "express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import hpp from "hpp";
 import mongoose from "mongoose";
-import path from "path";
-import { fileURLToPath } from "url";
-import xss from "xss-clean";
-import router from "./src/routes/api.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {
+  DATABASE,
+  MAX_JSON_SIZE,
+  PORT,
+  REQUEST_NUMBER,
+  REQUEST_TIME,
+  URL_ENCODE,
+  WEB_CACHE,
+} from "./app/config/config.js";
+import router from "./app/routes/api.js";
 
 const app = express();
 
-const URL = "mongodb://localhost:27017/ecom4";
-const option = { user: "", pass: "", autoIndex: true };
-
-mongoose
-  .connect(URL, option)
-  .then(() => console.log("Database Connected"))
-  .catch((err) => console.error(err));
-
-app.use(cookieParser());
+// App Use Default Middleware
 app.use(cors());
+app.use(express.json({ limit: MAX_JSON_SIZE }));
+app.use(express.urlencoded({ extended: URL_ENCODE }));
 app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-app.use(hpp());
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000 });
+// App Use Limiter
+const limiter = rateLimit({ windowMs: REQUEST_TIME, max: REQUEST_NUMBER });
 app.use(limiter);
 
-app.set("etag", false);
-app.use("/api/v1", router);
+// Cache
+app.set("etag", WEB_CACHE);
 
+// Database Connect
+mongoose
+  .connect(DATABASE, { autoIndex: true })
+  .then(() => {
+    console.log("MongoDB connected");
+  })
+  .catch(() => {
+    console.log("MongoDB disconnected");
+  });
 
+app.use("/api", router);
 
-
-export default app;
+app.listen(PORT, () => {
+  console.log("Server started on port " + PORT);
+});
